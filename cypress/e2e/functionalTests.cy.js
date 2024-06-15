@@ -1,6 +1,6 @@
 import { faker } from '@faker-js/faker';
 
-describe('Hotel Contact Form Submission Test', () => {
+describe('Functional Tests', () => {
 
   // Generate random values for form input fields
   const generateRandomValue = (min, max, type = 'lorem') => {
@@ -31,7 +31,7 @@ describe('Hotel Contact Form Submission Test', () => {
   const getAlert = () => cy.get('.alert-danger');
 
 
-  it('Fills out the hotel contact form and submits it', () => {
+  it('Positive test: fills out the hotel contact form and submits it', () => {
     cy.intercept('POST', '/message').as('postMessage');
     cy.visit('/');
     getName().type(user.fullName);
@@ -78,7 +78,7 @@ describe('Hotel Contact Form Submission Test', () => {
   const mandatoryFields = ['name', 'email', 'phone', 'subject', 'description'];
   const fieldToSkip = faker.helpers.arrayElement(mandatoryFields);
 
-  it('Shows error when a mandatory field is not filled', () => {
+  it('Negative test: shows error when a mandatory field is not filled', () => {
     cy.intercept('POST', '/message').as('postMessage');
     cy.visit('/');
     fillMandatoryFieldsExcept(fieldToSkip);
@@ -90,5 +90,77 @@ describe('Hotel Contact Form Submission Test', () => {
     getAlert().should('be.visible');
     cy.contains('h2', `Thanks for getting in touch ${user.fullName}!`).should('not.exist');
     cy.contains('p', user.subject).should('not.exist');
+  });
+
+  const login = (role) => {
+    const { username, password } = Cypress.env(role);
+    cy.visit('/#/admin');
+    cy.get('[data-testid="username"]').type(username);
+    cy.get('[data-testid="password"]').type(password);
+    cy.get('[data-testid="submit"]').click();
+  };
+
+  const allRoomFeatures = ['WiFi', 'TV', 'Radio', 'Refreshments', 'Safe', 'Views'];
+  const room = {
+    number: faker.number.int({ min: 0, max: 999 }).toString(),
+    type: faker.helpers.arrayElement(['Single', 'Twin', 'Double', 'Family', 'Suite']),
+    accessible: faker.helpers.arrayElement(['false', 'true']),
+    price: faker.number.int({ min: 1, max: 999 }).toString(),
+    features: faker.helpers.arrayElements(allRoomFeatures, faker.number.int({ min: 0, max: allRoomFeatures.length }))
+  };
+    
+  // Functions to get room page elements
+  const getRoomName = () => cy.get('[data-testid="roomName"]');
+  const getRoomType = () => cy.get('#type');
+  const getRoomAccessible = () => cy.get('#accessible');
+  const getRoomPrice = () => cy.get('#roomPrice');
+  const getFeatureCheckbox = (feature) => cy.get(`[value=${feature}]`);
+  const getCreateRoomButton = () => cy.get('#createRoom');
+  const getRoomList = () => cy.get('[data-testid="roomlisting"]');
+  const getRoomDetails = () => cy.get('.room-details');
+
+  const checkRoomDetails = (room) => {
+    cy.contains(room.number);
+    cy.contains(room.type);
+    cy.contains(room.accessible);
+    cy.contains(room.price);
+    room.features.forEach(feature => {
+      cy.contains(feature);
+    });
+  };
+
+  it.only('Positive test: creates a room and validates result', () => {
+    cy.intercept('POST', '/room').as('createRoom');
+    cy.intercept('GET', '/room').as('getRooms');
+    login('admin');
+    getRoomName().type(room.number);
+    getRoomType().select(room.type);
+    getRoomAccessible().select(room.accessible);
+    getRoomPrice().type(room.price);
+    room.features.forEach(feature => {
+      getFeatureCheckbox(feature).check();
+    });
+    getCreateRoomButton().click();
+
+    cy.wait('@createRoom').then((interception) => {
+      expect(interception.response.statusCode).to.eq(201);
+      expect(interception.request.body).to.deep.include({
+        roomName: room.number,
+        type: room.type,
+        accessible: room.accessible,
+        roomPrice: room.price
+      });
+      expect(interception.request.body.features).to.have.members(room.features);
+    });
+    cy.wait('@getRooms').its('response.statusCode').should('eq', 200);
+    getRoomList().last().within(() => {
+      checkRoomDetails(room);
+    });
+    getAlert().should('not.exist');
+    getRoomList().last().click();
+    cy.wait('@getRooms').its('response.statusCode').should('eq', 200);
+    getRoomDetails().within(() => {
+      checkRoomDetails(room);
+    });
   });
 });
