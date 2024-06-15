@@ -34,7 +34,6 @@ describe('Hotel Contact Form Submission Test', () => {
   it('Fills out the hotel contact form and submits it', () => {
     cy.intercept('POST', '/message').as('postMessage');
     cy.visit('/');
-
     getName().type(user.fullName);
     getEmail().type(user.email);
     getPhone().type(user.phone);
@@ -55,5 +54,41 @@ describe('Hotel Contact Form Submission Test', () => {
     cy.contains('h2',`Thanks for getting in touch ${user.fullName}!`).should('be.visible');
     cy.contains('p', user.subject).should('be.visible');
     getAlert().should('not.exist');
+  });
+
+  const fillMandatoryFieldsExcept = (fieldToSkip) => {
+    if (fieldToSkip !== 'name') {
+      getName().type(user.fullName);
+    }
+    if (fieldToSkip !== 'email') {
+      getEmail().type(user.email);
+    }
+    if (fieldToSkip !== 'phone') {
+      getPhone().type(user.phone);
+    }
+    if (fieldToSkip !== 'subject') {
+      getSubject().type(user.subject);
+    }
+    if (fieldToSkip !== 'description') {
+      getDescription().type(user.description);
+    }
+  };
+
+  // Choice any field to skip from mandatory fields
+  const mandatoryFields = ['name', 'email', 'phone', 'subject', 'description'];
+  const fieldToSkip = faker.helpers.arrayElement(mandatoryFields);
+
+  it('Shows error when a mandatory field is not filled', () => {
+    cy.intercept('POST', '/message').as('postMessage');
+    cy.visit('/');
+    fillMandatoryFieldsExcept(fieldToSkip);
+    getSubmitButton().click();
+
+    cy.wait('@postMessage').then((interception) => {
+      expect(interception.response.statusCode).to.eq(400);
+    });
+    getAlert().should('be.visible');
+    cy.contains('h2', `Thanks for getting in touch ${user.fullName}!`).should('not.exist');
+    cy.contains('p', user.subject).should('not.exist');
   });
 });
