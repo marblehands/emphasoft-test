@@ -1,7 +1,6 @@
 import { faker } from '@faker-js/faker';
 
 describe('Functional Tests', () => {
-
   // Generate random values for form input fields
   const generateRandomValue = (min, max, type = 'lorem') => {
     const length = faker.number.int({ min, max });
@@ -30,7 +29,6 @@ describe('Functional Tests', () => {
   const getSubmitButton = () => cy.get('#submitContact');
   const getAlert = () => cy.get('.alert-danger');
 
-
   it('Positive test: fills out the hotel contact form and submits it', () => {
     cy.intercept('POST', '/message').as('postMessage');
     cy.visit('/');
@@ -51,7 +49,7 @@ describe('Functional Tests', () => {
         description: user.description,
       });
     });
-    cy.contains('h2',`Thanks for getting in touch ${user.fullName}!`).should('be.visible');
+    cy.contains('h2', `Thanks for getting in touch ${user.fullName}!`).should('be.visible');
     cy.contains('p', user.subject).should('be.visible');
     getAlert().should('not.exist');
   });
@@ -74,11 +72,11 @@ describe('Functional Tests', () => {
     }
   };
 
-  // Choice any field to skip from mandatory fields
-  const mandatoryFields = ['name', 'email', 'phone', 'subject', 'description'];
-  const fieldToSkip = faker.helpers.arrayElement(mandatoryFields);
-
   it('Negative test: shows error when a mandatory field is not filled', () => {
+    // Choice any field to skip from mandatory fields
+    const mandatoryFields = ['name', 'email', 'phone', 'subject', 'description'];
+    const fieldToSkip = faker.helpers.arrayElement(mandatoryFields);
+
     cy.intercept('POST', '/message').as('postMessage');
     cy.visit('/');
     fillMandatoryFieldsExcept(fieldToSkip);
@@ -106,9 +104,9 @@ describe('Functional Tests', () => {
     type: faker.helpers.arrayElement(['Single', 'Twin', 'Double', 'Family', 'Suite']),
     accessible: faker.helpers.arrayElement(['false', 'true']),
     price: faker.number.int({ min: 1, max: 999 }).toString(),
-    features: faker.helpers.arrayElements(allRoomFeatures, faker.number.int({ min: 0, max: allRoomFeatures.length }))
+    features: faker.helpers.arrayElements(allRoomFeatures, faker.number.int({ min: 0, max: allRoomFeatures.length })),
   };
-    
+
   // Functions to get room page elements
   const getRoomName = () => cy.get('[data-testid="roomName"]');
   const getRoomType = () => cy.get('#type');
@@ -119,17 +117,17 @@ describe('Functional Tests', () => {
   const getRoomList = () => cy.get('[data-testid="roomlisting"]');
   const getRoomDetails = () => cy.get('.room-details');
 
-  const checkRoomDetails = (room) => {
-    cy.contains(room.number);
-    cy.contains(room.type);
-    cy.contains(room.accessible);
-    cy.contains(room.price);
-    room.features.forEach(feature => {
-      cy.contains(feature);
-    });
-  };
+  it('Positive test: creates a room and validates result', () => {
+    const checkRoomDetails = (room) => {
+      cy.contains(room.number);
+      cy.contains(room.type);
+      cy.contains(room.accessible);
+      cy.contains(room.price);
+      room.features.forEach((feature) => {
+        cy.contains(feature);
+      });
+    };
 
-  it.only('Positive test: creates a room and validates result', () => {
     cy.intercept('POST', '/room').as('createRoom');
     cy.intercept('GET', '/room').as('getRooms');
     login('admin');
@@ -137,7 +135,7 @@ describe('Functional Tests', () => {
     getRoomType().select(room.type);
     getRoomAccessible().select(room.accessible);
     getRoomPrice().type(room.price);
-    room.features.forEach(feature => {
+    room.features.forEach((feature) => {
       getFeatureCheckbox(feature).check();
     });
     getCreateRoomButton().click();
@@ -148,19 +146,46 @@ describe('Functional Tests', () => {
         roomName: room.number,
         type: room.type,
         accessible: room.accessible,
-        roomPrice: room.price
+        roomPrice: room.price,
       });
       expect(interception.request.body.features).to.have.members(room.features);
     });
     cy.wait('@getRooms').its('response.statusCode').should('eq', 200);
-    getRoomList().last().within(() => {
-      checkRoomDetails(room);
-    });
+    getRoomList()
+      .last()
+      .within(() => {
+        checkRoomDetails(room);
+      });
     getAlert().should('not.exist');
     getRoomList().last().click();
     cy.wait('@getRooms').its('response.statusCode').should('eq', 200);
     getRoomDetails().within(() => {
       checkRoomDetails(room);
     });
+  });
+
+  it('Negative test: should show an error message when adding a room with missing required fields randomly', () => {
+    const fieldToSkip = faker.helpers.arrayElement(['number', 'price']);
+
+    cy.intercept('POST', '/room').as('createRoom');
+    cy.intercept('GET', '/room').as('getRooms');
+
+    login('admin');
+    if (fieldToSkip !== 'number') {
+      getRoomName().type(room.number);
+    }
+    getRoomType().select(room.type);
+    getRoomAccessible().select(room.accessible);
+    if (fieldToSkip !== 'price') {
+      getRoomPrice().type(room.price);
+    }
+    room.features.forEach((feature) => {
+      getFeatureCheckbox(feature).check();
+    });
+    getCreateRoomButton().click();
+
+    cy.wait('@createRoom').its('response.statusCode').should('eq', 400);
+    cy.wait('@getRooms').its('response.statusCode').should('eq', 200);
+    getAlert().should('be.visible');
   });
 });
