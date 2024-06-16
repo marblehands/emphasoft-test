@@ -7,12 +7,11 @@ This project contains Cypress tests for a hotel contact form and room creation f
 ## Table of Contents
 
 1. [Installation](#installation)
-2. [Running the Tests](#running-the-tests)
-3. [Test Cases](#test-cases)
-4. [Available Scripts](#available-scripts)
-5. [Environment Variables](#environment-variables)
-6. [Authors](#authors)
-7. [License](#license)
+2. [Setup](#setup)
+3. [Running Tests](#running-tests)
+4. [Project Structure](#project-structure)
+5. [Test Content](#test-content)
+6. [Used Libraries](#used-libraries)
 
 ## Installation
 
